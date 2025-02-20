@@ -106,6 +106,10 @@ const createTooltip = (): [HTMLElement, HTMLElement] => {
 
         let [hours, minutes] = target.value.split(':').map((v) => parseInt(v));
 
+        if (!workingTime.isSame(dayjs(), 'day')) {
+          workingTime = dayjs().startOf('minute');
+        }
+
         workingTime = workingTime.set('hour', hours)
           .set('minute', minutes);
         await chrome.storage.local.set({ start_working_time: workingTime.toISOString() });
