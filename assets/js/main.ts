@@ -7,23 +7,20 @@
  * -----
  */
 import dayjs, { Dayjs } from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { computePosition, offset } from '@floating-ui/dom';
+
+import { ShowType, WorkFor } from './configs';
+import { calculateWorkTime } from './utils';
 
 import "../css/styles.css";
 
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
+
 enum MessageType {
   ShowProfilePhoto = "show_profile_photo",
-}
-
-enum ShowType {
-  WORKED = "Worked",
-  TIME_LEFT = "Time left",
-  CHECKOUT_TIME = "Checkout time",
-}
-
-enum WorkFor {
-  SIX = "6",
-  EIGHT = "8",
 }
 
 const eventDataPrefix = "hbt";
@@ -226,41 +223,6 @@ const createTooltip = (): [HTMLElement, HTMLElement] => {
     }
   }
 
-  const calculateWorkTime = (from: Dayjs, mode: string, workFor: WorkFor = WorkFor.EIGHT) => {
-    if (mode === ShowType.CHECKOUT_TIME) {
-      const checkoutAt = from.add(parseInt(workFor), 'hours').add(75, 'minute');
-
-      return `Checkout at ${checkoutAt.format('HH:mm')}`;
-    }
-
-    if (dayjs().isBefore(from)) {
-      return '00:00';
-    }
-
-    let minutes = dayjs().diff(from, 'minutes');
-
-    if (mode === ShowType.WORKED) {
-      if (minutes > 315) {
-        minutes -= 75;
-      } else if (minutes > 240) {
-        minutes = 240;
-      }
-    }
-
-    if (mode === ShowType.TIME_LEFT) {
-      minutes = Math.max(0, parseInt(workFor) * 60 + 75 - minutes);
-    }
-
-    const hours = Math.floor(minutes / 60);
-    minutes = minutes - hours * 60;
-
-    if (mode === ShowType.TIME_LEFT) {
-      return `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes} left`;
-    }
-
-    return `Worked ${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
-  };
-
   setTimeout(() => {
     workTime();
   }, 2000);
@@ -398,7 +360,7 @@ const createTooltip = (): [HTMLElement, HTMLElement] => {
           );
 
           if (avatar) {
-            let timeout: number | undefined;
+            let timeout: ReturnType<typeof setTimeout> | undefined;
             const avatarStyle = getComputedStyle(avatar);
 
             avatar.parentElement?.classList.add('circle');
