@@ -7,9 +7,14 @@
  * -----
  */
 import dayjs, { Dayjs } from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { computePosition, offset } from '@floating-ui/dom';
 
 import "../css/styles.css";
+
+dayjs.extend(isSameOrAfter)
+dayjs.extend(isSameOrBefore)
 
 enum MessageType {
   ShowProfilePhoto = "show_profile_photo",
@@ -227,8 +232,29 @@ const createTooltip = (): [HTMLElement, HTMLElement] => {
   }
 
   const calculateWorkTime = (from: Dayjs, mode: string, workFor: WorkFor = WorkFor.EIGHT) => {
+    let minutes = dayjs().diff(from, 'minutes');
+    let breakMinutes = 75;
+    const breakStart = from.startOf('hour').hour(12);
+    const breakEnd = from.startOf('minute').hour(13).minute(15);
+
+    if (from.isBefore(breakStart)) {
+      minutes -= breakMinutes;
+    } else if (from.isSameOrAfter(breakStart) && from.isSameOrBefore(breakEnd)) {
+      minutes -= breakEnd.diff(from, 'minutes');
+      breakMinutes -= from.diff(breakStart, 'minutes');
+    } else if (from.isAfter(breakEnd)) {
+      breakMinutes = 0;
+    }
+
     if (mode === ShowType.CHECKOUT_TIME) {
-      const checkoutAt = from.add(parseInt(workFor), 'hours').add(75, 'minute');
+      const checkoutAt = from.add(parseInt(workFor), 'hours').add(breakMinutes, 'minute');
+      const lastCheckoutTime = dayjs().hour(19).minute(30).startOf('minute');
+
+      if (checkoutAt.isAfter(lastCheckoutTime)) {
+        const possibleMinutes = lastCheckoutTime.diff(from, 'minutes') - breakMinutes;
+
+        return `Checkout at 19:30 [for ${convertMinutes(possibleMinutes)}]`;
+      }
 
       return `Checkout at ${checkoutAt.format('HH:mm')}`;
     }
@@ -237,29 +263,23 @@ const createTooltip = (): [HTMLElement, HTMLElement] => {
       return '00:00';
     }
 
-    let minutes = dayjs().diff(from, 'minutes');
-
-    if (mode === ShowType.WORKED) {
-      if (minutes > 315) {
-        minutes -= 75;
-      } else if (minutes > 240) {
-        minutes = 240;
-      }
+    if (mode === ShowType.TIME_LEFT) {
+      minutes = Math.max(0, parseInt(workFor) * 60 - minutes);
     }
 
     if (mode === ShowType.TIME_LEFT) {
-      minutes = Math.max(0, parseInt(workFor) * 60 + 75 - minutes);
+      return `${convertMinutes(minutes)} left`;
     }
 
-    const hours = Math.floor(minutes / 60);
-    minutes = minutes - hours * 60;
-
-    if (mode === ShowType.TIME_LEFT) {
-      return `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes} left`;
-    }
-
-    return `Worked ${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
+    return `Worked ${convertMinutes(minutes)}`;
   };
+
+  const convertMinutes = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes - hours * 60;
+
+    return `${hours < 10 ? '0' : ''}${hours}:${mins < 10 ? '0' : ''}${mins}`;
+  }
 
   setTimeout(() => {
     workTime();
